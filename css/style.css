@@ -5,6 +5,11 @@
   box-sizing: border-box;
 }
 
+/* NEW: the "hidden" attribute always wins, even on flex boxes */
+[hidden] {
+  display: none !important;
+}
+
 /* Page fills the screen, no scrolling */
 html, body {
   width: 100%;
@@ -122,11 +127,6 @@ html, body {
   padding: 16px;
   overflow-y: auto;
   background: rgba(2, 4, 12, 0.75);
-}
-
-/* Without this line the "hidden" attribute would not work on a flex box */
-.modal[hidden] {
-  display: none;
 }
 
 .modal-card {
@@ -249,7 +249,7 @@ input:focus, textarea:focus {
   color: #ffe6b3;
 }
 
-/* ---------- NEW in Phase 3: walk button and joystick ---------- */
+/* ---------- Phase 3: walk button and joystick ---------- */
 
 /* Top-right button: fly down to the island and back */
 .walk-btn {
@@ -286,10 +286,6 @@ input:focus, textarea:focus {
   touch-action: none; /* the finger must not scroll the page */
 }
 
-.joystick[hidden] {
-  display: none;
-}
-
 /* The glowing knob inside the joystick */
 .stick {
   position: absolute;
@@ -302,4 +298,35 @@ input:focus, textarea:focus {
   background: linear-gradient(180deg, #ffe08a, #ffb347);
   box-shadow: 0 0 14px rgba(255, 170, 60, 0.6);
   pointer-events: none;
+}
+
+/* ---------- NEW in Phase 4: the room popup ---------- */
+
+.room-card h2 {
+  margin-bottom: 4px;
+  overflow-wrap: anywhere;
+}
+
+.room-college {
+  font-size: 0.9rem;
+  color: #c3cbee;
+  margin-bottom: 8px;
+}
+
+/* Small heading above each section ("Skills", "Projects") */
+.room-label {
+  margin-top: 14px;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffd27a;
+}
+
+.room-text {
+  margin-top: 4px;
+  font-size: 1rem;
+  line-height: 1.45;
+  color: #fff4d6;
+  white-space: pre-wrap;      /* keeps the owner's line breaks */
+  overflow-wrap: anywhere;    /* very long words never break the box */
 }
