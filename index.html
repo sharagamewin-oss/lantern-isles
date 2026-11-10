@@ -17,7 +17,7 @@
 </head>
 <body>
 
-  <!-- The 3D night sky is drawn on this canvas -->
+  <!-- The 3D world is drawn on this canvas -->
   <canvas id="scene"></canvas>
 
   <!-- Top-left: title and lantern counter -->
@@ -26,8 +26,16 @@
     <p class="counter">Lanterns lit: <span id="counter">0</span></p>
   </header>
 
-  <!-- Small hint near the bottom -->
-  <p class="hud hint">Drag the sky to look around. Tap a lantern to read its wish.</p>
+  <!-- NEW: top-right button to fly down to the island and back -->
+  <button id="walk-btn" class="walk-btn" type="button">🚶 Walk</button>
+
+  <!-- Small hint near the bottom (the text changes with the mode) -->
+  <p id="hint" class="hud hint">Drag the sky to look around. Tap a lantern to read its wish.</p>
+
+  <!-- NEW: the mobile joystick (only shown on touch screens while walking) -->
+  <div id="joystick" class="joystick" hidden>
+    <div id="stick" class="stick"></div>
+  </div>
 
   <!-- The main button -->
   <button id="join-btn" class="join-btn" type="button">🏮 Write your wish</button>
@@ -64,7 +72,7 @@
     </form>
   </div>
 
-  <!-- NEW: the popup that shows someone's wish (hidden until you tap a lantern) -->
+  <!-- The popup that shows someone's wish (hidden until you tap a lantern) -->
   <div id="wish-modal" class="modal" hidden>
     <div class="modal-card wish-card">
       <p class="wish-who"><strong id="wish-name"></strong> · <span id="wish-college"></span></p>
