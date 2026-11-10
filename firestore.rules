@@ -1,0 +1,37 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Wishes = lanterns
+    match /wishes/{wishId} {
+
+      // Anyone can read wishes
+      allow read: if true;
+
+      // A logged-in guest can create ONE wish.
+      // The document ID must equal their own user ID, so a second wish is impossible.
+      allow create: if request.auth != null
+        && wishId == request.auth.uid
+        && request.resource.data.keys().hasOnly(
+             ['name', 'college', 'wishText', 'skills', 'createdAt', 'sparks', 'uid', 'hidden'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.name is string
+        && request.resource.data.name.size() >= 1
+        && request.resource.data.name.size() <= 40
+        && request.resource.data.college is string
+        && request.resource.data.college.size() >= 1
+        && request.resource.data.college.size() <= 60
+        && request.resource.data.wishText is string
+        && request.resource.data.wishText.size() >= 1
+        && request.resource.data.wishText.size() <= 150
+        && request.resource.data.skills is string
+        && request.resource.data.skills.size() <= 100
+        && request.resource.data.sparks == 0
+        && request.resource.data.hidden == false
+        && request.resource.data.createdAt == request.time;
+
+      // Nobody can edit or delete yet (sparks are added in Phase 2)
+      allow update, delete: if false;
+    }
+  }
+}
