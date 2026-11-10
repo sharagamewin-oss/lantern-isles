@@ -1,62 +1,220 @@
-/* Reset: remove default spacing so every browser looks the same */
+/* Reset: remove default spacing */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-/* Night sky background that fills the whole screen */
-body {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;      /* center vertically */
-  justify-content: center;  /* center horizontally */
-  padding: 16px;
-  background: linear-gradient(180deg, #050816 0%, #0d1b3d 60%, #1b2a5c 100%);
+/* Page fills the screen, no scrolling */
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #050816;
   color: #fff;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
-/* The centered box */
-.card {
+/* The 3D canvas covers the whole screen */
+#scene {
+  position: fixed;
+  inset: 0;
   width: 100%;
-  max-width: 480px;
-  padding: 32px 24px;
+  height: 100%;
+  display: block;
+  touch-action: none; /* lets us drag on phones without the page scrolling */
+}
+
+/* Text that floats on top of the 3D scene */
+.hud {
+  position: fixed;
+  z-index: 5;
+  pointer-events: none; /* clicks pass through to the sky */
+}
+
+.hud-top {
+  top: 16px;
+  left: 16px;
+}
+
+.hud-top h1 {
+  font-size: 1.3rem;
+  color: #ffd27a;
+  text-shadow: 0 0 12px rgba(255, 170, 60, 0.6);
+}
+
+.counter {
+  margin-top: 8px;
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.9rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 200, 100, 0.35);
+  color: #ffe6b3;
+}
+
+.hint {
+  bottom: 88px;
+  left: 0;
+  right: 0;
   text-align: center;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 200, 100, 0.3);
-  border-radius: 16px;
-  box-shadow: 0 0 40px rgba(255, 170, 60, 0.15); /* soft lantern glow */
+  font-size: 0.8rem;
+  color: rgba(214, 220, 245, 0.7);
 }
 
-h1 {
-  font-size: 2rem;
-  margin-bottom: 12px;
-  color: #ffd27a; /* warm lantern color */
+/* The big glowing button */
+.join-btn {
+  position: fixed;
+  z-index: 10;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 14px 28px;
+  border: none;
+  border-radius: 999px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #3a1d00;
+  background: linear-gradient(180deg, #ffe08a, #ffb347);
+  box-shadow: 0 0 24px rgba(255, 170, 60, 0.6);
+  cursor: pointer;
 }
 
-.tagline {
-  line-height: 1.5;
-  color: #d6dcf5;
-  margin-bottom: 24px;
+.join-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+  box-shadow: none;
 }
 
-/* The Firebase status message */
-.status {
-  padding: 10px 12px;
-  border-radius: 8px;
+/* Small message bubble */
+.toast {
+  position: fixed;
+  z-index: 30;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 90%;
+  padding: 10px 16px;
+  border-radius: 12px;
   font-size: 0.95rem;
+  text-align: center;
+  background: rgba(20, 30, 70, 0.95);
+  border: 1px solid rgba(255, 200, 100, 0.4);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s;
+}
+
+.toast.show {
+  opacity: 1;
+}
+
+/* Dark overlay behind the form */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overflow-y: auto;
+  background: rgba(2, 4, 12, 0.75);
+}
+
+/* Without this line the "hidden" attribute would not work on a flex box */
+.modal[hidden] {
+  display: none;
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 440px;
+  padding: 24px 20px;
+  border-radius: 16px;
+  background: #0f1a3d;
+  border: 1px solid rgba(255, 200, 100, 0.35);
+  box-shadow: 0 0 40px rgba(255, 170, 60, 0.2);
+}
+
+.modal-card h2 {
+  color: #ffd27a;
+  margin-bottom: 8px;
+}
+
+.modal-sub {
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: #c3cbee;
+  margin-bottom: 16px;
+}
+
+label {
+  display: block;
+  margin: 12px 0 6px;
+  font-size: 0.9rem;
+  color: #d6dcf5;
+}
+
+/* font-size 16px stops iPhones from zooming into the box */
+input, textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 16px;
+  font-family: inherit;
+  color: #fff;
   background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  resize: none;
 }
 
-/* Green when connected */
-.status.ok {
-  background: rgba(60, 200, 120, 0.2);
-  color: #9dffc8;
+input:focus, textarea:focus {
+  outline: 2px solid #ffb347;
 }
 
-/* Red when there is an error */
-.status.bad {
-  background: rgba(230, 70, 70, 0.2);
+.char-count {
+  text-align: right;
+  font-size: 0.75rem;
+  color: #9aa5d6;
+  margin-top: 4px;
+}
+
+.form-error {
+  min-height: 1.2em;
+  margin-top: 8px;
+  font-size: 0.85rem;
   color: #ffb3b3;
+}
+
+.btn-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.btn-row button {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-primary {
+  color: #3a1d00;
+  background: linear-gradient(180deg, #ffe08a, #ffb347);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.btn-secondary {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
 }
