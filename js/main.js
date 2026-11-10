@@ -3,6 +3,7 @@
 import { createScene } from "./scene.js";
 import { createSky } from "./sky.js";
 import { createIsland } from "./islands.js";
+import { createGallery, prepareArtImage } from "./gallery.js";
 import { createWalk } from "./walk.js";
 import {
   initUI,
@@ -18,7 +19,15 @@ import {
   initRoomPopup,
   openRoomPopup,
   setRoomContent,
-  setRoomLoadFailed
+  setRoomLoadFailed,
+  initGalleryButtons,
+  setArtButton,
+  initArtForm,
+  openArtForm,
+  initArtPopup,
+  openArtPopup,
+  updateArtPopup,
+  setFlowerStatus
 } from "./ui.js";
 import {
   loginAnonymously,
@@ -28,7 +37,11 @@ import {
   hasSparked,
   sendSpark,
   getRoom,
-  saveRoom
+  saveRoom,
+  listenToArt,
+  saveArt,
+  hasFlowered,
+  sendFlower
 } from "./db.js";
 
 // 1. Build the 3D world
@@ -36,15 +49,16 @@ const canvas = document.getElementById("scene");
 const world = createScene(canvas);
 const sky = createSky(world.scene, world.camera, world.onFrame);
 
-// The island and the walking controls
+// The island, Gallery Street, and the walking controls
 const island = createIsland(world.scene, world.onFrame);
+const gallery = createGallery(world.scene, world.onFrame); // NEW in Phase 5
 const walk = createWalk({
   camera: world.camera,
   world: world,
-  island: island,
-  onModeChange: setWalkMode // the button text changes when the mode changes
+  places: { island: island, gallery: gallery }, // CHANGED: walk.js now knows both places
+  onModeChange: setWalkMode // the buttons change when the mode changes
 });
-setWalkMode("sky");
+setWalkMode("sky", "island");
 initWalkButton({ onToggle: () => walk.toggle() });
 
 world.start();
@@ -52,9 +66,11 @@ world.start();
 // 2. Things we remember while the page is open
 let currentUser = null;
 let firstLoadDone = false;
-const wishes = new Map(); // wish id -> latest wish data
-let openWishId = null;    // which lantern's popup is open right now (or null)
-let openRoomId = null;    // NEW: which room's popup is open right now (or null)
+const wishes = new Map();   // wish id -> latest wish data
+const artworks = new Map(); // NEW: art id -> latest art data
+let openWishId = null;      // which lantern's popup is open right now (or null)
+let openRoomId = null;      // which room's popup is open right now (or null)
+let openArtId = null;       // NEW: which picture's popup is open right now (or null)
 
 // 3. Start the guest login right away and keep the "promise" so other code can wait for it
 const loginPromise = loginAnonymously()
@@ -141,7 +157,7 @@ initWishPopup({
   }
 });
 
-// 6. NEW: what happens when someone presses "Save" in their room
+// 6. What happens when someone presses "Save" in their room
 async function handleRoomSave({ skills, projects }) {
   const user = currentUser || (await loginPromise);
   if (!user) {
@@ -174,7 +190,7 @@ initRoomPopup({
   }
 });
 
-// 7. NEW: show a lantern's wish popup (same code as before, now in its own function)
+// 7. Show a lantern's wish popup
 async function showLantern(id) {
   const wish = wishes.get(id);
   if (!wish) return;
@@ -207,7 +223,7 @@ async function showLantern(id) {
   }
 }
 
-// 8. NEW: show a house's room popup
+// 8. Show a house's room popup
 async function showRoom(id) {
   const wish = wishes.get(id);
   if (!wish) return;
@@ -233,12 +249,157 @@ async function showRoom(id) {
   }
 }
 
-// 9. What happens when someone taps the screen (works in the sky AND while walking)
+// 9. NEW in Phase 5: the Gallery button and the "Add my art" button
+
+// "Add my art" was pressed: only people with a lantern can share art
+async function handleAddArtClick() {
+  const user = currentUser || (await loginPromise);
+  if (!user) {
+    showToast("Could not log in. Please refresh the page.");
+    return;
+  }
+
+  try {
+    const joined = await hasWish(user.uid);
+    if (!joined) {
+      showToast("Light your lantern first. Then you can share your art. 🎨");
+      return;
+    }
+  } catch (error) {
+    console.error(error);
+    showToast("Could not check your lantern. Please try again.");
+    return;
+  }
+
+  openArtForm({ hasArt: artworks.has(user.uid) });
+}
+
+// "Hang my art" was pressed in the art form
+async function handleArtSubmit({ title, file }) {
+  const user = currentUser || (await loginPromise);
+  if (!user) {
+    throw new Error("Could not log in. Please refresh the page.");
+  }
+
+  // Shrink the picture first (this throws a friendly Error if the file is not OK)
+  const imageUrl = await prepareArtImage(file);
+
+  try {
+    await saveArt(user, { title, imageUrl });
+  } catch (error) {
+    console.error(error);
+    if (error.code === "permission-denied") {
+      throw new Error("Could not save. Check that the new Firestore rules are published, and that you have lit a lantern.");
+    }
+    throw new Error("Something went wrong: " + (error.code || "please try again."));
+  }
+
+  showToast("Your art is on Gallery Street! 🎨");
+}
+
+initArtForm({ onSubmit: handleArtSubmit });
+
+initGalleryButtons({
+  onGallery: () => walk.toggleGallery(),
+  onAddArt: handleAddArtClick
+});
+
+// 10. NEW in Phase 5: show a picture's popup
+async function showArt(id) {
+  const art = artworks.get(id);
+  if (!art) return;
+
+  const user = currentUser || (await loginPromise);
+
+  // The artist's name and college come from their wish
+  const wish = wishes.get(art.uid || id);
+
+  // Show the popup right away (the flower button says "Checking...")
+  openArtId = id;
+  openArtPopup({
+    art: art,
+    artist: wish ? wish.name : "A guest",
+    college: wish ? wish.college : ""
+  });
+
+  // Then find out what the flower button should say
+  if (!user) {
+    setFlowerStatus("ready");
+    return;
+  }
+
+  if (user.uid === id) {
+    setFlowerStatus("own"); // you cannot leave a flower on your own art
+    return;
+  }
+
+  try {
+    const done = await hasFlowered(id, user.uid);
+    if (openArtId !== id) return; // popup was closed or changed meanwhile
+    setFlowerStatus(done ? "flowered" : "ready");
+  } catch (error) {
+    console.error(error);
+    if (openArtId === id) setFlowerStatus("ready");
+  }
+}
+
+// What happens when someone presses "Leave a flower"
+async function handleFlower() {
+  const id = openArtId;
+  if (!id) return;
+
+  const user = currentUser || (await loginPromise);
+  if (!user) {
+    showToast("Could not log in. Please refresh the page.");
+    return;
+  }
+
+  setFlowerStatus("sending");
+
+  try {
+    await sendFlower(id, user.uid);
+    if (openArtId === id) setFlowerStatus("flowered");
+    showToast("Your flower is on its way! 🌸");
+  } catch (error) {
+    console.error(error);
+
+    // Find out if it failed because this person already left a flower here
+    let already = false;
+    try {
+      already = await hasFlowered(id, user.uid);
+    } catch (e) {
+      console.error(e);
+    }
+
+    if (openArtId === id) setFlowerStatus(already ? "flowered" : "ready");
+    showToast(
+      already
+        ? "You already left a flower on this art."
+        : "Could not leave the flower. Check that the Firestore rules are published."
+    );
+  }
+}
+
+initArtPopup({
+  onFlower: handleFlower,
+  onClose: () => {
+    openArtId = null;
+  }
+});
+
+// 11. What happens when someone taps the screen (works in the sky AND while walking)
 world.onTap((x, y) => {
   // Lanterns first
   const lanternId = sky.pickLantern(x, y);
   if (lanternId) {
     showLantern(lanternId);
+    return;
+  }
+
+  // Then pictures on Gallery Street
+  const artId = gallery.pickFrame(x, y, world.camera);
+  if (artId) {
+    showArt(artId);
     return;
   }
 
@@ -249,7 +410,7 @@ world.onTap((x, y) => {
   }
 });
 
-// 10. Listen to wishes live (works even before login)
+// 12. Listen to wishes live (works even before login)
 listenToWishes(
   ({ added, modified, total }) => {
     // New lanterns
@@ -289,9 +450,34 @@ listenToWishes(
   }
 );
 
-// 11. After login, check if this guest already has a lantern
+// 13. NEW in Phase 5: listen to the art live
+listenToArt(
+  ({ list }) => {
+    // Remember the newest list
+    artworks.clear();
+    list.forEach((art) => artworks.set(art.id, art));
+
+    // Give every picture a frame on Gallery Street
+    // (gallery.js plays the flower petals by itself when a flower count goes up)
+    gallery.setArt(list);
+
+    // If this picture's popup is open, refresh it (new flower, new picture...)
+    if (openArtId && artworks.has(openArtId)) {
+      updateArtPopup(artworks.get(openArtId));
+    }
+
+    // The art button says "Change my art" if I already have art
+    if (currentUser) setArtButton(artworks.has(currentUser.uid));
+  },
+  () => {
+    showToast("Could not load the art. Check that the new Firestore rules are published.");
+  }
+);
+
+// 14. After login, check if this guest already has a lantern (and already has art)
 loginPromise.then(async (user) => {
   if (!user) return;
+  setArtButton(artworks.has(user.uid));
   try {
     const joined = await hasWish(user.uid);
     setJoined(joined);
