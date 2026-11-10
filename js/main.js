@@ -14,7 +14,11 @@ import {
   updateWishPopupSparks,
   setSparkStatus,
   initWalkButton,
-  setWalkMode
+  setWalkMode,
+  initRoomPopup,
+  openRoomPopup,
+  setRoomContent,
+  setRoomLoadFailed
 } from "./ui.js";
 import {
   loginAnonymously,
@@ -22,7 +26,9 @@ import {
   createWish,
   listenToWishes,
   hasSparked,
-  sendSpark
+  sendSpark,
+  getRoom,
+  saveRoom
 } from "./db.js";
 
 // 1. Build the 3D world
@@ -30,7 +36,7 @@ const canvas = document.getElementById("scene");
 const world = createScene(canvas);
 const sky = createSky(world.scene, world.camera, world.onFrame);
 
-// NEW: the island and the walking controls
+// The island and the walking controls
 const island = createIsland(world.scene, world.onFrame);
 const walk = createWalk({
   camera: world.camera,
@@ -48,6 +54,7 @@ let currentUser = null;
 let firstLoadDone = false;
 const wishes = new Map(); // wish id -> latest wish data
 let openWishId = null;    // which lantern's popup is open right now (or null)
+let openRoomId = null;    // NEW: which room's popup is open right now (or null)
 
 // 3. Start the guest login right away and keep the "promise" so other code can wait for it
 const loginPromise = loginAnonymously()
@@ -134,11 +141,41 @@ initWishPopup({
   }
 });
 
-// 6. What happens when someone taps the screen (works in the sky AND while walking)
-world.onTap(async (x, y) => {
-  const id = sky.pickLantern(x, y); // which lantern is under the tap?
-  if (!id) return;
+// 6. NEW: what happens when someone presses "Save" in their room
+async function handleRoomSave({ skills, projects }) {
+  const user = currentUser || (await loginPromise);
+  if (!user) {
+    throw new Error("Could not log in. Please refresh the page.");
+  }
 
+  // You can only edit your own room
+  const wish = wishes.get(user.uid);
+  if (!wish || openRoomId !== user.uid) {
+    throw new Error("You can only edit your own room.");
+  }
+
+  try {
+    await saveRoom(user, wish, { skills, projects });
+  } catch (error) {
+    console.error(error);
+    if (error.code === "permission-denied") {
+      throw new Error("Could not save. Check that the new Firestore rules are published.");
+    }
+    throw new Error("Something went wrong: " + (error.code || "please try again."));
+  }
+
+  showToast("Your room is saved! 🏠");
+}
+
+initRoomPopup({
+  onSave: handleRoomSave,
+  onClose: () => {
+    openRoomId = null;
+  }
+});
+
+// 7. NEW: show a lantern's wish popup (same code as before, now in its own function)
+async function showLantern(id) {
   const wish = wishes.get(id);
   if (!wish) return;
 
@@ -168,9 +205,51 @@ world.onTap(async (x, y) => {
     console.error(error);
     if (openWishId === id) setSparkStatus("ready");
   }
+}
+
+// 8. NEW: show a house's room popup
+async function showRoom(id) {
+  const wish = wishes.get(id);
+  if (!wish) return;
+
+  const user = currentUser || (await loginPromise);
+
+  // Show the popup right away (it says "Loading...")
+  openRoomId = id;
+  openRoomPopup({
+    name: wish.name,
+    college: wish.college,
+    isOwner: !!user && user.uid === id
+  });
+
+  // Then load the real room from the database
+  try {
+    const room = await getRoom(id);
+    if (openRoomId !== id) return; // popup was closed or changed meanwhile
+    setRoomContent(room);
+  } catch (error) {
+    console.error(error);
+    if (openRoomId === id) setRoomLoadFailed();
+  }
+}
+
+// 9. What happens when someone taps the screen (works in the sky AND while walking)
+world.onTap((x, y) => {
+  // Lanterns first
+  const lanternId = sky.pickLantern(x, y);
+  if (lanternId) {
+    showLantern(lanternId);
+    return;
+  }
+
+  // Then houses
+  const houseId = island.pickHouse(x, y, world.camera);
+  if (houseId) {
+    showRoom(houseId);
+  }
 });
 
-// 7. Listen to wishes live (works even before login)
+// 10. Listen to wishes live (works even before login)
 listenToWishes(
   ({ added, modified, total }) => {
     // New lanterns
@@ -198,7 +277,7 @@ listenToWishes(
       }
     });
 
-    // NEW: give every wish a house on the island
+    // Give every wish a house on the island
     island.setHouses(Array.from(wishes.values()));
 
     sky.setPopulation(total);
@@ -210,7 +289,7 @@ listenToWishes(
   }
 );
 
-// 8. After login, check if this guest already has a lantern
+// 11. After login, check if this guest already has a lantern
 loginPromise.then(async (user) => {
   if (!user) return;
   try {
