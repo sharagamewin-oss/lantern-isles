@@ -2,52 +2,70 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <!-- This line makes the page fit mobile screens properly -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Lantern Isles</title>
-
-  <!-- Link to our stylesheet -->
   <link rel="stylesheet" href="css/style.css" />
+
+  <!-- Tells the browser where to download Three.js from (the 3D library) -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+      }
+    }
+  </script>
 </head>
 <body>
 
-  <main class="card">
+  <!-- The 3D night sky is drawn on this canvas -->
+  <canvas id="scene"></canvas>
+
+  <!-- Top-left: title and lantern counter -->
+  <header class="hud hud-top">
     <h1>🏮 Lantern Isles</h1>
-    <p class="tagline">Write your wish. Get your place in the world.<br />Watch it grow with us.</p>
+    <p class="counter">Lanterns lit: <span id="counter">0</span></p>
+  </header>
 
-    <!-- This box shows if Firebase is connected -->
-    <p id="status" class="status">Connecting to Firebase...</p>
-  </main>
+  <!-- Small hint near the bottom -->
+  <p class="hud hint">Drag the sky to look around</p>
 
-  <!-- This script tests the Firebase connection (Phase 0 only) -->
-  <script type="module">
-    // Bring in our Firebase setup from firebase-config.js
-    import { auth } from "./js/firebase-config.js";
+  <!-- The main button -->
+  <button id="join-btn" class="join-btn" type="button">🏮 Write your wish</button>
 
-    // Bring in the anonymous login function (same CDN version as the config file)
-    import { signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  <!-- Small message that appears and disappears -->
+  <div id="toast" class="toast"></div>
 
-    const statusBox = document.getElementById("status");
+  <!-- The join form (hidden until you click the button) -->
+  <div id="join-modal" class="modal" hidden>
+    <form id="join-form" class="modal-card" autocomplete="off">
+      <h2>Light your lantern</h2>
+      <p class="modal-sub">
+        Your name, college and wish will be <strong>public</strong>.
+        Please do not write phone numbers or emails.
+      </p>
 
-    async function testFirebase() {
-      try {
-        // Ask Firebase to log in this visitor without a password
-        const result = await signInAnonymously(auth);
+      <label for="name-input">Your name</label>
+      <input id="name-input" type="text" maxlength="40" required placeholder="Your name" />
 
-        // Show a short part of the visitor's unique ID as proof it worked
-        const shortId = result.user.uid.slice(0, 6);
-        statusBox.textContent = "✅ Firebase connected! Your guest ID starts with: " + shortId;
-        statusBox.classList.add("ok");
-      } catch (error) {
-        // If something is wrong, show the error code so we can fix it
-        statusBox.textContent = "❌ Firebase error: " + error.code;
-        statusBox.classList.add("bad");
-        console.error(error);
-      }
-    }
+      <label for="college-input">Your college</label>
+      <input id="college-input" type="text" maxlength="60" required placeholder="Your college name" />
 
-    testFirebase();
-  </script>
+      <label for="wish-input">Your wish or goal</label>
+      <textarea id="wish-input" maxlength="150" rows="3" required
+        placeholder="I wish to..."></textarea>
+      <p class="char-count"><span id="wish-count">0</span> / 150</p>
+
+      <p id="form-error" class="form-error"></p>
+
+      <div class="btn-row">
+        <button type="button" id="cancel-btn" class="btn-secondary">Cancel</button>
+        <button type="submit" id="submit-btn" class="btn-primary">Light my lantern</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Starts everything -->
+  <script type="module" src="js/main.js"></script>
 
 </body>
 </html>
