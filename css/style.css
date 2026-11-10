@@ -58,6 +58,7 @@ html, body {
   bottom: 88px;
   left: 0;
   right: 0;
+  padding: 0 16px;
   text-align: center;
   font-size: 0.8rem;
   color: rgba(214, 220, 245, 0.7);
@@ -217,4 +218,33 @@ input:focus, textarea:focus {
 .btn-secondary {
   color: #fff;
   background: rgba(255, 255, 255, 0.12);
+}
+
+/* ---------- NEW in Phase 2: the wish popup ---------- */
+
+.wish-card {
+  text-align: center;
+}
+
+.wish-who {
+  font-size: 0.95rem;
+  color: #c3cbee;
+}
+
+.wish-who strong {
+  color: #ffd27a;
+}
+
+/* The wish itself: big and easy to read */
+.wish-text {
+  margin: 16px 0;
+  font-size: 1.2rem;
+  line-height: 1.45;
+  color: #fff4d6;
+  overflow-wrap: anywhere; /* very long words never break the box */
+}
+
+.wish-sparks {
+  font-size: 0.95rem;
+  color: #ffe6b3;
 }
