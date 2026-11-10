@@ -26,8 +26,10 @@
     <p class="counter">Lanterns lit: <span id="counter">0</span></p>
   </header>
 
-  <!-- Top-right button to fly down to the island and back -->
+  <!-- Top-right buttons: fly down to the island and back, visit Gallery Street, add your art -->
   <button id="walk-btn" class="walk-btn" type="button">🚶 Walk</button>
+  <button id="gallery-btn" class="walk-btn side-btn-2" type="button">🖼️ Gallery</button>
+  <button id="art-btn" class="walk-btn side-btn-3" type="button">🎨 Add my art</button>
 
   <!-- Small hint near the bottom (the text changes with the mode) -->
   <p id="hint" class="hud hint">Drag to look around. Tap a lantern to read its wish, or a house to see its room.</p>
@@ -86,7 +88,7 @@
     </div>
   </div>
 
-  <!-- NEW: the room popup (hidden until you tap a house) -->
+  <!-- The room popup (hidden until you tap a house) -->
   <div id="room-modal" class="modal" hidden>
     <div class="modal-card room-card">
       <h2 id="room-title"></h2>
@@ -122,6 +124,48 @@
       <div id="room-buttons" class="btn-row">
         <button type="button" id="room-close-btn" class="btn-secondary">Close</button>
         <button type="button" id="room-edit-btn" class="btn-primary" hidden>✏️ Edit my room</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- NEW in Phase 5: the art form (title + picture) -->
+  <div id="art-modal" class="modal" hidden>
+    <form id="art-form" class="modal-card" autocomplete="off">
+      <h2 id="art-form-title">Share your art</h2>
+      <p class="modal-sub">
+        Your picture will be <strong>public</strong> on Gallery Street.
+        You can have one picture. Only share art you are happy for everyone to see.
+      </p>
+
+      <label for="art-title-input">Title</label>
+      <input id="art-title-input" type="text" maxlength="60" required placeholder="Name your art" />
+
+      <label for="art-file-input">Picture (JPG or PNG, up to 10 MB)</label>
+      <input id="art-file-input" type="file" accept="image/*" required />
+
+      <!-- A small preview of the chosen picture -->
+      <img id="art-preview" class="art-preview" alt="Preview of your art" hidden />
+
+      <p id="art-error" class="form-error"></p>
+
+      <div class="btn-row">
+        <button type="button" id="art-cancel-btn" class="btn-secondary">Cancel</button>
+        <button type="submit" id="art-submit-btn" class="btn-primary">Hang my art</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- NEW in Phase 5: the popup that shows one picture (hidden until you tap a frame) -->
+  <div id="art-view-modal" class="modal" hidden>
+    <div class="modal-card art-card">
+      <img id="art-view-img" class="art-view-img" alt="" />
+      <h2 id="art-view-title" class="art-view-title"></h2>
+      <p id="art-view-artist" class="room-college"></p>
+      <p id="art-view-flowers" class="wish-sparks"></p>
+
+      <div class="btn-row">
+        <button type="button" id="art-view-close-btn" class="btn-secondary">Close</button>
+        <button type="button" id="flower-btn" class="btn-primary">🌸 Leave a flower</button>
       </div>
     </div>
   </div>
