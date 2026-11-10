@@ -61,7 +61,7 @@ service cloud.firestore {
       }
     }
 
-    // NEW in Phase 4: rooms
+    // Phase 4: rooms
     match /rooms/{roomId} {
 
       // Anyone can read rooms
@@ -96,6 +96,80 @@ service cloud.firestore {
 
       // Nobody can delete a room
       allow delete: if false;
+    }
+
+    // NEW in Phase 5: art on Gallery Street
+    // The picture is stored as a small text (a JPEG turned into text) in the imageUrl field.
+    match /art/{artId} {
+
+      // Anyone can read art
+      allow read: if true;
+
+      // You can create ONLY your own art (the ID must be your guest ID),
+      // and only after you have lit a lantern.
+      allow create: if request.auth != null
+        && artId == request.auth.uid
+        && exists(/databases/$(database)/documents/wishes/$(artId))
+        && request.resource.data.keys().hasOnly(
+             ['uid', 'title', 'imageUrl', 'flowers', 'createdAt', 'hidden'])
+        && request.resource.data.keys().hasAll(
+             ['uid', 'title', 'imageUrl', 'flowers', 'createdAt', 'hidden'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.title is string
+        && request.resource.data.title.size() >= 1
+        && request.resource.data.title.size() <= 60
+        && request.resource.data.imageUrl is string
+        && request.resource.data.imageUrl.size() <= 120000
+        && request.resource.data.imageUrl.matches('data:image/jpeg;base64,.*')
+        && request.resource.data.flowers == 0
+        && request.resource.data.hidden == false
+        && request.resource.data.createdAt == request.time;
+
+      allow update: if request.auth != null && (
+
+        // (a) The OWNER can change the title and the picture, nothing else
+        (artId == request.auth.uid
+          && resource.data.hidden == false
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'imageUrl'])
+          && request.resource.data.title is string
+          && request.resource.data.title.size() >= 1
+          && request.resource.data.title.size() <= 60
+          && request.resource.data.imageUrl is string
+          && request.resource.data.imageUrl.size() <= 120000
+          && request.resource.data.imageUrl.matches('data:image/jpeg;base64,.*'))
+
+        ||
+
+        // (b) FLOWER: someone else can raise flowers by exactly 1,
+        //     and only together with their own flower record.
+        (request.auth.uid != artId
+          && resource.data.hidden == false
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['flowers'])
+          && request.resource.data.flowers == resource.data.flowers + 1
+          && !exists(/databases/$(database)/documents/art/$(artId)/flowers/$(request.auth.uid))
+          && existsAfter(/databases/$(database)/documents/art/$(artId)/flowers/$(request.auth.uid)))
+      );
+
+      // Nobody can delete art
+      allow delete: if false;
+
+      // One small record per person per picture
+      match /flowers/{flowerId} {
+
+        // You can only read your own flower record
+        allow read: if request.auth != null && request.auth.uid == flowerId;
+
+        // You can create only YOUR record, never on your own art
+        allow create: if request.auth != null
+          && flowerId == request.auth.uid
+          && request.auth.uid != artId
+          && exists(/databases/$(database)/documents/art/$(artId))
+          && request.resource.data.keys().hasOnly(['createdAt'])
+          && request.resource.data.createdAt == request.time;
+
+        // Records can never be changed or removed
+        allow update, delete: if false;
+      }
     }
   }
 }
