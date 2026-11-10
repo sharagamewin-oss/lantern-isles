@@ -220,7 +220,7 @@ input:focus, textarea:focus {
   background: rgba(255, 255, 255, 0.12);
 }
 
-/* ---------- NEW in Phase 2: the wish popup ---------- */
+/* ---------- Phase 2: the wish popup ---------- */
 
 .wish-card {
   text-align: center;
@@ -247,4 +247,59 @@ input:focus, textarea:focus {
 .wish-sparks {
   font-size: 0.95rem;
   color: #ffe6b3;
+}
+
+/* ---------- NEW in Phase 3: walk button and joystick ---------- */
+
+/* Top-right button: fly down to the island and back */
+.walk-btn {
+  position: fixed;
+  z-index: 10;
+  top: 16px;
+  right: 16px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 200, 100, 0.5);
+  background: rgba(15, 26, 61, 0.85);
+  color: #ffe6b3;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.walk-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* The round joystick base (bottom-left, above the main button) */
+.joystick {
+  position: fixed;
+  z-index: 10;
+  left: 24px;
+  bottom: 140px;
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(255, 200, 100, 0.4);
+  touch-action: none; /* the finger must not scroll the page */
+}
+
+.joystick[hidden] {
+  display: none;
+}
+
+/* The glowing knob inside the joystick */
+.stick {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 48px;
+  height: 48px;
+  margin: -24px 0 0 -24px; /* centers the knob */
+  border-radius: 50%;
+  background: linear-gradient(180deg, #ffe08a, #ffb347);
+  box-shadow: 0 0 14px rgba(255, 170, 60, 0.6);
+  pointer-events: none;
 }
