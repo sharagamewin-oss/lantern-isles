@@ -12,7 +12,9 @@ import {
   query,
   orderBy,
   limit,
-  serverTimestamp
+  serverTimestamp,
+  writeBatch,
+  increment
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // 1. Log the visitor in as a guest (returns the user).
@@ -45,8 +47,8 @@ export async function createWish(user, { name, college, wishText }) {
 }
 
 // 4. Listen to wishes LIVE.
-// Firebase calls onChange every time a wish is added, on any device.
-// onChange receives: { added: [new wishes], total: number of wishes }
+// Firebase calls onChange every time a wish is added OR changed, on any device.
+// onChange receives: { added: [new wishes], modified: [changed wishes], total: number }
 export function listenToWishes(onChange, onError) {
   const q = query(
     collection(db, "wishes"),
@@ -58,25 +60,48 @@ export function listenToWishes(onChange, onError) {
     q,
     (snapshot) => {
       const added = [];
+      const modified = [];
 
-      // docChanges() lists only what is NEW since last time
+      // docChanges() lists only what is NEW or CHANGED since last time
       snapshot.docChanges().forEach((change) => {
+        const data = change.doc.data();
+        if (data.hidden === true) return; // skip hidden wishes
+
         if (change.type === "added") {
-          const data = change.doc.data();
-          if (data.hidden !== true) {
-            added.push({ id: change.doc.id, ...data });
-          }
+          added.push({ id: change.doc.id, ...data });
+        } else if (change.type === "modified") {
+          modified.push({ id: change.doc.id, ...data });
         }
       });
 
       // Count the wishes that are not hidden
       const total = snapshot.docs.filter((d) => d.data().hidden !== true).length;
 
-      onChange({ added, total });
+      onChange({ added, modified, total });
     },
     (error) => {
       console.error("Could not listen to wishes:", error);
       if (onError) onError(error);
     }
   );
+}
+
+// 5. NEW: Has this guest already sent a spark to this lantern?
+export async function hasSparked(wishId, uid) {
+  const snap = await getDoc(doc(db, "wishes", wishId, "sparks", uid));
+  return snap.exists();
+}
+
+// 6. NEW: Send a spark.
+// A "batch" means two writes that succeed together or fail together:
+//   (a) create my spark record, (b) add +1 to the lantern's sparks number.
+export async function sendSpark(wishId, uid) {
+  const batch = writeBatch(db);
+  batch.set(doc(db, "wishes", wishId, "sparks", uid), {
+    createdAt: serverTimestamp()
+  });
+  batch.update(doc(db, "wishes", wishId), {
+    sparks: increment(1)
+  });
+  await batch.commit();
 }
