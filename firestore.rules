@@ -8,8 +8,7 @@ service cloud.firestore {
       // Anyone can read wishes
       allow read: if true;
 
-      // A logged-in guest can create ONE wish.
-      // The document ID must equal their own user ID, so a second wish is impossible.
+      // A logged-in guest can create ONE wish (document ID = their own user ID)
       allow create: if request.auth != null
         && wishId == request.auth.uid
         && request.resource.data.keys().hasOnly(
@@ -30,8 +29,37 @@ service cloud.firestore {
         && request.resource.data.hidden == false
         && request.resource.data.createdAt == request.time;
 
-      // Nobody can edit or delete yet (sparks are added in Phase 2)
-      allow update, delete: if false;
+      // SPARK: the only allowed change is sparks going up by exactly 1,
+      // and only if this person has no spark record yet AND is creating one
+      // in the same action.
+      allow update: if request.auth != null
+        && request.auth.uid != wishId
+        && resource.data.hidden == false
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sparks'])
+        && request.resource.data.sparks == resource.data.sparks + 1
+        && !exists(/databases/$(database)/documents/wishes/$(wishId)/sparks/$(request.auth.uid))
+        && existsAfter(/databases/$(database)/documents/wishes/$(wishId)/sparks/$(request.auth.uid));
+
+      // Nobody can delete a wish
+      allow delete: if false;
+
+      // One small record per person per lantern
+      match /sparks/{sparkerId} {
+
+        // You can only read your own spark record
+        allow read: if request.auth != null && request.auth.uid == sparkerId;
+
+        // You can create only YOUR record, never on your own lantern
+        allow create: if request.auth != null
+          && sparkerId == request.auth.uid
+          && request.auth.uid != wishId
+          && exists(/databases/$(database)/documents/wishes/$(wishId))
+          && request.resource.data.keys().hasOnly(['createdAt'])
+          && request.resource.data.createdAt == request.time;
+
+        // Records can never be changed or removed
+        allow update, delete: if false;
+      }
     }
   }
 }
