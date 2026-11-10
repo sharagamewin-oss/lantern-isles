@@ -208,6 +208,36 @@ export function createIsland(scene, onFrame) {
     };
   }
 
+  // NEW in Phase 4: which house is under this tap? (returns the wish id, or null)
+  const tempVector = new THREE.Vector3();
+  function pickHouse(clientX, clientY, camera) {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    let bestId = null;
+    let bestDistance = 45; // a tap must be within 45 pixels of a house
+
+    houses.forEach((house, id) => {
+      // The middle of the house in the 3D world (a bit above the ground)
+      house.group.getWorldPosition(tempVector);
+      tempVector.y += 1.2;
+
+      // Turn that 3D position into a position on the screen
+      tempVector.project(camera);
+      if (tempVector.z > 1) return; // it is behind us
+
+      const screenX = (tempVector.x * 0.5 + 0.5) * w;
+      const screenY = (-tempVector.y * 0.5 + 0.5) * h;
+      const distance = Math.hypot(screenX - clientX, screenY - clientY);
+
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestId = id;
+      }
+    });
+
+    return bestId;
+  }
+
   // Runs every frame: grow the island and pop up new houses
   onFrame((time, delta) => {
     now = time;
@@ -224,5 +254,5 @@ export function createIsland(scene, onFrame) {
     });
   });
 
-  return { topY: ISLAND_Y, setHouses, constrain, getSpawn };
+  return { topY: ISLAND_Y, setHouses, constrain, getSpawn, pickHouse };
 }
