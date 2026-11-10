@@ -97,6 +97,7 @@ export function createSky(scene, camera, onFrame) {
   );
 
   const lanterns = new Map(); // wish id -> lantern info
+  const bursts = [];          // spark bursts that are playing right now
   let now = 0;                // current time in seconds
 
   // Add one lantern for one wish
@@ -128,6 +129,7 @@ export function createSky(scene, camera, onFrame) {
 
     lanterns.set(wish.id, {
       group: group,
+      glow: glow,                 // kept so we can make it bigger with sparks
       baseX: Math.sin(theta) * radius,
       baseY: height,
       baseZ: -Math.cos(theta) * radius,
@@ -138,8 +140,82 @@ export function createSky(scene, camera, onFrame) {
       speed: 0.6 + rand() * 0.6,
       bornAt: now,
       delay: delay,
-      wish: wish // kept for Phase 2 (tap to read the wish)
+      sparks: wish.sparks || 0,   // how many sparks this lantern has
+      pulseStart: -10,            // when the last spark pulse began
+      wish: wish
     });
+  }
+
+  // NEW: when a wish changes in the database, update its lantern
+  function updateLantern(wish) {
+    const l = lanterns.get(wish.id);
+    if (!l) return;
+    l.wish = wish;
+    l.sparks = wish.sparks || 0;
+  }
+
+  // NEW: play the spark effect on one lantern (a pulse plus flying dots of light)
+  function burst(id) {
+    const l = lanterns.get(id);
+    if (!l || !l.group.visible) return;
+
+    l.pulseStart = now; // makes the lantern's glow flash
+
+    const parts = [];
+    for (let i = 0; i < 14; i++) {
+      const material = new THREE.SpriteMaterial({
+        map: glowTexture,
+        color: 0xfff1b0,
+        transparent: true,
+        opacity: 1,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false
+      });
+      const sprite = new THREE.Sprite(material);
+      sprite.scale.set(1.6, 1.6, 1);
+      sprite.position.copy(l.group.position);
+      scene.add(sprite);
+
+      // A random direction and speed for each dot
+      const a = Math.random() * Math.PI * 2;
+      const up = Math.random() * Math.PI - Math.PI / 2;
+      const speed = 4 + Math.random() * 5;
+      parts.push({
+        sprite: sprite,
+        vx: Math.cos(a) * Math.cos(up) * speed,
+        vy: Math.sin(up) * speed + 2,
+        vz: Math.sin(a) * Math.cos(up) * speed
+      });
+    }
+    bursts.push({ parts: parts, start: now });
+  }
+
+  // NEW: which lantern is under this tap? (returns its id, or null)
+  const tempVector = new THREE.Vector3();
+  function pickLantern(clientX, clientY) {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    let bestId = null;
+    let bestDistance = 50; // a tap must be within 50 pixels of a lantern
+
+    lanterns.forEach((l, id) => {
+      if (!l.group.visible) return;
+
+      // Turn the lantern's 3D position into a position on the screen
+      tempVector.copy(l.group.position).project(camera);
+      if (tempVector.z > 1) return; // it is behind us
+
+      const screenX = (tempVector.x * 0.5 + 0.5) * w;
+      const screenY = (-tempVector.y * 0.5 + 0.5) * h;
+      const distance = Math.hypot(screenX - clientX, screenY - clientY);
+
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestId = id;
+      }
+    });
+
+    return bestId;
   }
 
   // More people = brighter glow (full brightness at 100 lanterns)
@@ -160,8 +236,8 @@ export function createSky(scene, camera, onFrame) {
     };
   }
 
-  // Runs every frame: twinkle stars, float lanterns
-  onFrame((time) => {
+  // Runs every frame: twinkle stars, float lanterns, play bursts
+  onFrame((time, delta) => {
     now = time;
 
     smallStars.material.opacity = 0.65 + 0.25 * Math.sin(time * 1.3);
@@ -189,8 +265,41 @@ export function createSky(scene, camera, onFrame) {
       );
       l.group.scale.setScalar(Math.max(ease, 0.001));
       l.group.rotation.z = Math.sin(time * 0.5 + l.phase) * 0.05;
-    });
-  }); // <-- this closing bracket plus parenthesis was the missing piece
 
-  return { addLantern, setPopulation, getLook };
+      // More sparks = bigger glow (stops growing at 20 sparks)
+      const sparkSize = 1 + Math.min(l.sparks, 20) * 0.04;
+      // A quick flash right after a spark, fading over 1.2 seconds
+      const pulse = Math.max(0, 1 - (time - l.pulseStart) / 1.2);
+      const glowSize = 9 * sparkSize * (1 + 0.8 * pulse);
+      l.glow.scale.set(glowSize, glowSize, 1);
+    });
+
+    // Move and fade the flying dots of light, then clean them up
+    for (let i = bursts.length - 1; i >= 0; i--) {
+      const b = bursts[i];
+      const age = time - b.start;
+
+      if (age > 1.3) {
+        b.parts.forEach((p) => {
+          scene.remove(p.sprite);
+          p.sprite.material.dispose();
+        });
+        bursts.splice(i, 1);
+        continue;
+      }
+
+      const fade = 1 - age / 1.3;
+      b.parts.forEach((p) => {
+        p.sprite.position.x += p.vx * delta;
+        p.sprite.position.y += p.vy * delta;
+        p.sprite.position.z += p.vz * delta;
+        p.vx *= 0.97;
+        p.vy *= 0.97;
+        p.vz *= 0.97;
+        p.sprite.material.opacity = fade;
+      });
+    }
+  });
+
+  return { addLantern, updateLantern, burst, pickLantern, setPopulation, getLook };
 }
