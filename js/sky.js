@@ -123,7 +123,7 @@ export function createSky(scene, camera, onFrame) {
 
     group.add(body, topCap, bottomCap, glow);
     group.visible = false;       // hidden until its turn to appear
-    group.scale.setScalar(0);
+    group.scale.setScalar(0.001);
     scene.add(group);
 
     lanterns.set(wish.id, {
@@ -187,10 +187,10 @@ export function createSky(scene, camera, onFrame) {
         l.baseY + bob - (1 - ease) * 10, // starts 10 units lower and rises
         l.baseZ
       );
-      l.group.scale.setScalar(ease);
+      l.group.scale.setScalar(Math.max(ease, 0.001));
       l.group.rotation.z = Math.sin(time * 0.5 + l.phase) * 0.05;
     });
-  }
+  }); // <-- this closing bracket plus parenthesis was the missing piece
 
   return { addLantern, setPopulation, getLook };
 }
