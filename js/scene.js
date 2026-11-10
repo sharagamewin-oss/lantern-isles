@@ -53,6 +53,12 @@ export function createScene(canvas) {
   let lastX = 0;
   let lastY = 0;
 
+  // NEW: used to tell a TAP apart from a DRAG
+  let downX = 0;
+  let downY = 0;
+  let downTime = 0;
+  const tapCallbacks = [];
+
   function clampLook() {
     targetYaw = Math.max(-1.3, Math.min(1.3, targetYaw));
     targetPitch = Math.max(-0.4, Math.min(0.7, targetPitch));
@@ -62,9 +68,25 @@ export function createScene(canvas) {
     dragging = true;
     lastX = e.clientX;
     lastY = e.clientY;
+    downX = e.clientX;
+    downY = e.clientY;
+    downTime = performance.now();
   });
-  window.addEventListener("pointerup", () => { dragging = false; });
+
+  window.addEventListener("pointerup", (e) => {
+    if (dragging) {
+      // A tap = finger/mouse barely moved AND it was quick
+      const moved = Math.hypot(e.clientX - downX, e.clientY - downY);
+      const quick = performance.now() - downTime < 600;
+      if (moved < 8 && quick) {
+        tapCallbacks.forEach((fn) => fn(e.clientX, e.clientY));
+      }
+    }
+    dragging = false;
+  });
+
   window.addEventListener("pointercancel", () => { dragging = false; });
+
   window.addEventListener("pointermove", (e) => {
     if (!dragging) return;
     targetYaw += (e.clientX - lastX) * 0.004;
@@ -73,6 +95,11 @@ export function createScene(canvas) {
     lastY = e.clientY;
     clampLook();
   });
+
+  // Other files can ask to be told when the sky is tapped
+  function onTap(fn) {
+    tapCallbacks.push(fn);
+  }
 
   // Smoothly turn the camera toward a direction (used after you join)
   function lookTowards(newYaw, newPitch) {
@@ -110,5 +137,5 @@ export function createScene(canvas) {
     loop();
   }
 
-  return { scene, camera, renderer, onFrame, lookTowards, start };
+  return { scene, camera, renderer, onFrame, onTap, lookTowards, start };
 }
