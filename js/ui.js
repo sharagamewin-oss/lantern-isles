@@ -1,4 +1,4 @@
-// ui.js: buttons, the join form, the wish popup, the walk button, the counter and the message bubble.
+// ui.js: buttons, the join form, the wish popup, the room popup, the walk button, the counter and the message bubble.
 
 const $ = (id) => document.getElementById(id);
 
@@ -153,7 +153,7 @@ export function setSparkStatus(status) {
   btn.disabled = state.disabled;
 }
 
-// ---------- NEW in Phase 3: the walk button ----------
+// ---------- Phase 3: the walk button ----------
 
 // Connect the Walk button. onToggle runs when it is pressed.
 export function initWalkButton({ onToggle }) {
@@ -170,16 +170,133 @@ export function setWalkMode(mode) {
   if (mode === "sky") {
     btn.textContent = "🚶 Walk";
     btn.disabled = false;
-    hint.textContent = "Drag the sky to look around. Tap a lantern to read its wish.";
+    hint.textContent = "Drag to look around. Tap a lantern to read its wish, or a house to see its room.";
   } else if (mode === "walking") {
     btn.textContent = "🌌 Sky";
     btn.disabled = false;
     hint.textContent = isTouch
-      ? "Use the joystick to walk. Drag the screen to look around."
-      : "W A S D to walk. Drag the mouse to look around. Tap a lantern to read its wish.";
+      ? "Use the joystick to walk. Drag the screen to look. Tap a house to see its room."
+      : "W A S D to walk. Drag the mouse to look. Tap a house to see its room.";
   } else {
     // flying: the button is switched off until we arrive
     btn.textContent = "✈️ ...";
     btn.disabled = true;
   }
+}
+
+// ---------- NEW in Phase 4: the room popup ----------
+
+// What the popup is showing right now (used to fill the edit form)
+let roomIsOwner = false;
+let roomData = { skills: "", projects: "" };
+
+// Show the view mode (skills and projects as text)
+function showRoomView() {
+  $("room-view").hidden = false;
+  $("room-buttons").hidden = false;
+  $("room-form").hidden = true;
+}
+
+// Put the skills and projects text into the view
+function fillRoomView() {
+  $("room-skills").textContent = roomData.skills || "Not added yet";
+  $("room-projects").textContent = roomData.projects || "Not added yet";
+}
+
+// Set up the room popup.
+// onSave({ skills, projects }) saves the room (from main.js). onClose runs when the popup closes.
+export function initRoomPopup({ onSave, onClose }) {
+  const modal = $("room-modal");
+  const form = $("room-form");
+  const skillsInput = $("room-skills-input");
+  const projectsInput = $("room-projects-input");
+  const errorBox = $("room-error");
+  const saveBtn = $("room-save-btn");
+
+  function close() {
+    modal.hidden = true;
+    showRoomView(); // so it opens in view mode next time
+    onClose();
+  }
+
+  $("room-close-btn").addEventListener("click", close);
+
+  // Clicking the dark area outside the card also closes it
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) close();
+  });
+
+  // "Edit my room": switch to the form, filled with the current text
+  $("room-edit-btn").addEventListener("click", () => {
+    skillsInput.value = roomData.skills;
+    projectsInput.value = roomData.projects;
+    errorBox.textContent = "";
+    $("room-view").hidden = true;
+    $("room-buttons").hidden = true;
+    form.hidden = false;
+    skillsInput.focus();
+  });
+
+  $("room-cancel-btn").addEventListener("click", showRoomView);
+
+  // When "Save" is pressed
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const skills = skillsInput.value.trim();
+    const projects = projectsInput.value.trim();
+
+    if (skills.length > 100 || projects.length > 300) {
+      errorBox.textContent = "One of your answers is too long.";
+      return;
+    }
+
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Saving...";
+    errorBox.textContent = "";
+
+    try {
+      await onSave({ skills, projects });
+      roomData = { skills, projects };
+      fillRoomView();
+      showRoomView();
+    } catch (err) {
+      errorBox.textContent = err.message;
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = "Save";
+    }
+  });
+}
+
+// Open the popup right away while the room is still loading.
+// textContent (not innerHTML) keeps the page safe from sneaky code.
+export function openRoomPopup({ name, college, isOwner }) {
+  roomIsOwner = isOwner;
+  roomData = { skills: "", projects: "" };
+
+  $("room-title").textContent = "🏠 " + name + (isOwner ? " (you)" : "");
+  $("room-college").textContent = college;
+  $("room-skills").textContent = "Loading...";
+  $("room-projects").textContent = "Loading...";
+  $("room-edit-btn").hidden = true; // shown after loading, owner only
+
+  showRoomView();
+  $("room-modal").hidden = false;
+}
+
+// When the room has loaded (room can be null = no room data yet)
+export function setRoomContent(room) {
+  roomData = {
+    skills: (room && room.skills) || "",
+    projects: (room && room.projects) || ""
+  };
+  fillRoomView();
+  $("room-edit-btn").hidden = !roomIsOwner; // only the owner can edit
+}
+
+// When the room could not be loaded
+export function setRoomLoadFailed() {
+  $("room-skills").textContent = "Could not load this room.";
+  $("room-projects").textContent = "";
 }
