@@ -2,6 +2,8 @@
 
 import { createScene } from "./scene.js";
 import { createSky } from "./sky.js";
+import { createIsland } from "./islands.js";
+import { createWalk } from "./walk.js";
 import {
   initUI,
   setCounter,
@@ -10,7 +12,9 @@ import {
   initWishPopup,
   openWishPopup,
   updateWishPopupSparks,
-  setSparkStatus
+  setSparkStatus,
+  initWalkButton,
+  setWalkMode
 } from "./ui.js";
 import {
   loginAnonymously,
@@ -25,6 +29,18 @@ import {
 const canvas = document.getElementById("scene");
 const world = createScene(canvas);
 const sky = createSky(world.scene, world.camera, world.onFrame);
+
+// NEW: the island and the walking controls
+const island = createIsland(world.scene, world.onFrame);
+const walk = createWalk({
+  camera: world.camera,
+  world: world,
+  island: island,
+  onModeChange: setWalkMode // the button text changes when the mode changes
+});
+setWalkMode("sky");
+initWalkButton({ onToggle: () => walk.toggle() });
+
 world.start();
 
 // 2. Things we remember while the page is open
@@ -63,16 +79,18 @@ async function handleJoin(data) {
   }
 
   setJoined(true);
-  showToast("Your lantern is floating into the sky! ✨");
+  showToast("Your lantern is floating into the sky and your house is being built! ✨");
 
-  // Turn the camera to face the new lantern
-  const look = sky.getLook(user.uid);
-  if (look) world.lookTowards(look.yaw, look.pitch);
+  // Turn the camera to face the new lantern (only in sky view)
+  if (walk.getMode() === "sky") {
+    const look = sky.getLook(user.uid);
+    if (look) world.lookTowards(look.yaw, look.pitch);
+  }
 }
 
 initUI({ onSubmit: handleJoin });
 
-// 5. NEW: what happens when someone presses "Send spark"
+// 5. What happens when someone presses "Send spark"
 async function handleSpark() {
   const id = openWishId;
   if (!id) return;
@@ -104,7 +122,7 @@ async function handleSpark() {
     showToast(
       already
         ? "You already sent a spark to this lantern."
-        : "Could not send the spark. Check that the new Firestore rules are published."
+        : "Could not send the spark. Check that the Firestore rules are published."
     );
   }
 }
@@ -116,7 +134,7 @@ initWishPopup({
   }
 });
 
-// 6. NEW: what happens when someone taps the sky
+// 6. What happens when someone taps the screen (works in the sky AND while walking)
 world.onTap(async (x, y) => {
   const id = sky.pickLantern(x, y); // which lantern is under the tap?
   if (!id) return;
@@ -179,6 +197,9 @@ listenToWishes(
         updateWishPopupSparks(wish.sparks || 0);
       }
     });
+
+    // NEW: give every wish a house on the island
+    island.setHouses(Array.from(wishes.values()));
 
     sky.setPopulation(total);
     setCounter(total);
