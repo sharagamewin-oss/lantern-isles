@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <!-- This line makes the page fit mobile screens properly -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lantern Isles</title>
+
+  <!-- Link to our stylesheet -->
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <main class="card">
+    <h1>🏮 Lantern Isles</h1>
+    <p class="tagline">Write your wish. Get your place in the world.<br />Watch it grow with us.</p>
+
+    <!-- This box shows if Firebase is connected -->
+    <p id="status" class="status">Connecting to Firebase...</p>
+  </main>
+
+  <!-- This script tests the Firebase connection (Phase 0 only) -->
+  <script type="module">
+    // Bring in our Firebase setup from firebase-config.js
+    import { auth } from "./js/firebase-config.js";
+
+    // Bring in the anonymous login function (same CDN version as the config file)
+    import { signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+    const statusBox = document.getElementById("status");
+
+    async function testFirebase() {
+      try {
+        // Ask Firebase to log in this visitor without a password
+        const result = await signInAnonymously(auth);
+
+        // Show a short part of the visitor's unique ID as proof it worked
+        const shortId = result.user.uid.slice(0, 6);
+        statusBox.textContent = "✅ Firebase connected! Your guest ID starts with: " + shortId;
+        statusBox.classList.add("ok");
+      } catch (error) {
+        // If something is wrong, show the error code so we can fix it
+        statusBox.textContent = "❌ Firebase error: " + error.code;
+        statusBox.classList.add("bad");
+        console.error(error);
+      }
+    }
+
+    testFirebase();
+  </script>
+
+</body>
+</html>
