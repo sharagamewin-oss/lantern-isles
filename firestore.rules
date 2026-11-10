@@ -30,8 +30,7 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time;
 
       // SPARK: the only allowed change is sparks going up by exactly 1,
-      // and only if this person has no spark record yet AND is creating one
-      // in the same action.
+      // and only together with this person's own spark record.
       allow update: if request.auth != null
         && request.auth.uid != wishId
         && resource.data.hidden == false
@@ -60,6 +59,43 @@ service cloud.firestore {
         // Records can never be changed or removed
         allow update, delete: if false;
       }
+    }
+
+    // NEW in Phase 4: rooms
+    match /rooms/{roomId} {
+
+      // Anyone can read rooms
+      allow read: if true;
+
+      // You can create ONLY your own room (the ID must be your guest ID),
+      // and only if your wish exists (or is being created in the same action).
+      // The name and college must match your wish.
+      allow create: if request.auth != null
+        && roomId == request.auth.uid
+        && existsAfter(/databases/$(database)/documents/wishes/$(roomId))
+        && request.resource.data.keys().hasOnly(
+             ['name', 'college', 'skills', 'projects', 'createdAt'])
+        && request.resource.data.keys().hasAll(
+             ['name', 'college', 'skills', 'projects', 'createdAt'])
+        && request.resource.data.name == getAfter(/databases/$(database)/documents/wishes/$(roomId)).data.name
+        && request.resource.data.college == getAfter(/databases/$(database)/documents/wishes/$(roomId)).data.college
+        && request.resource.data.skills is string
+        && request.resource.data.skills.size() <= 100
+        && request.resource.data.projects is string
+        && request.resource.data.projects.size() <= 300
+        && request.resource.data.createdAt == request.time;
+
+      // You can edit ONLY your own room, and ONLY skills and projects
+      allow update: if request.auth != null
+        && roomId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['skills', 'projects'])
+        && request.resource.data.skills is string
+        && request.resource.data.skills.size() <= 100
+        && request.resource.data.projects is string
+        && request.resource.data.projects.size() <= 300;
+
+      // Nobody can delete a room
+      allow delete: if false;
     }
   }
 }
