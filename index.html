@@ -26,13 +26,13 @@
     <p class="counter">Lanterns lit: <span id="counter">0</span></p>
   </header>
 
-  <!-- NEW: top-right button to fly down to the island and back -->
+  <!-- Top-right button to fly down to the island and back -->
   <button id="walk-btn" class="walk-btn" type="button">🚶 Walk</button>
 
   <!-- Small hint near the bottom (the text changes with the mode) -->
-  <p id="hint" class="hud hint">Drag the sky to look around. Tap a lantern to read its wish.</p>
+  <p id="hint" class="hud hint">Drag to look around. Tap a lantern to read its wish, or a house to see its room.</p>
 
-  <!-- NEW: the mobile joystick (only shown on touch screens while walking) -->
+  <!-- The mobile joystick (only shown on touch screens while walking) -->
   <div id="joystick" class="joystick" hidden>
     <div id="stick" class="stick"></div>
   </div>
@@ -82,6 +82,46 @@
       <div class="btn-row">
         <button type="button" id="wish-close-btn" class="btn-secondary">Close</button>
         <button type="button" id="spark-btn" class="btn-primary">✨ Send spark</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- NEW: the room popup (hidden until you tap a house) -->
+  <div id="room-modal" class="modal" hidden>
+    <div class="modal-card room-card">
+      <h2 id="room-title"></h2>
+      <p id="room-college" class="room-college"></p>
+
+      <!-- View mode: shows the skills and projects -->
+      <div id="room-view">
+        <p class="room-label">Skills</p>
+        <p id="room-skills" class="room-text"></p>
+        <p class="room-label">Projects</p>
+        <p id="room-projects" class="room-text"></p>
+      </div>
+
+      <!-- Edit mode: only the owner can open this -->
+      <form id="room-form" autocomplete="off" hidden>
+        <label for="room-skills-input">Your skills</label>
+        <input id="room-skills-input" type="text" maxlength="100"
+          placeholder="Example: Python, drawing, Arduino" />
+
+        <label for="room-projects-input">Your projects</label>
+        <textarea id="room-projects-input" maxlength="300" rows="4"
+          placeholder="What are you building or have built?"></textarea>
+
+        <p id="room-error" class="form-error"></p>
+
+        <div class="btn-row">
+          <button type="button" id="room-cancel-btn" class="btn-secondary">Cancel</button>
+          <button type="submit" id="room-save-btn" class="btn-primary">Save</button>
+        </div>
+      </form>
+
+      <!-- Buttons for view mode -->
+      <div id="room-buttons" class="btn-row">
+        <button type="button" id="room-close-btn" class="btn-secondary">Close</button>
+        <button type="button" id="room-edit-btn" class="btn-primary" hidden>✏️ Edit my room</button>
       </div>
     </div>
   </div>
