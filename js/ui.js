@@ -1,4 +1,4 @@
-// ui.js: buttons, the join form, the wish popup, the counter and the message bubble.
+// ui.js: buttons, the join form, the wish popup, the walk button, the counter and the message bubble.
 
 const $ = (id) => document.getElementById(id);
 
@@ -98,7 +98,7 @@ export function initUI({ onSubmit }) {
   });
 }
 
-// ---------- NEW in Phase 2: the wish popup ----------
+// ---------- Phase 2: the wish popup ----------
 
 // Set up the popup's buttons.
 // onSpark runs when "Send spark" is pressed. onClose runs when the popup closes.
@@ -151,4 +151,35 @@ export function setSparkStatus(status) {
   const state = states[status] || states.ready;
   btn.textContent = state.text;
   btn.disabled = state.disabled;
+}
+
+// ---------- NEW in Phase 3: the walk button ----------
+
+// Connect the Walk button. onToggle runs when it is pressed.
+export function initWalkButton({ onToggle }) {
+  $("walk-btn").addEventListener("click", onToggle);
+}
+
+// Change the button and the hint text to match the mode:
+// "sky", "in" (flying down), "walking", "out" (flying up)
+export function setWalkMode(mode) {
+  const btn = $("walk-btn");
+  const hint = $("hint");
+  const isTouch = window.matchMedia("(pointer: coarse)").matches;
+
+  if (mode === "sky") {
+    btn.textContent = "🚶 Walk";
+    btn.disabled = false;
+    hint.textContent = "Drag the sky to look around. Tap a lantern to read its wish.";
+  } else if (mode === "walking") {
+    btn.textContent = "🌌 Sky";
+    btn.disabled = false;
+    hint.textContent = isTouch
+      ? "Use the joystick to walk. Drag the screen to look around."
+      : "W A S D to walk. Drag the mouse to look around. Tap a lantern to read its wish.";
+  } else {
+    // flying: the button is switched off until we arrive
+    btn.textContent = "✈️ ...";
+    btn.disabled = true;
+  }
 }
