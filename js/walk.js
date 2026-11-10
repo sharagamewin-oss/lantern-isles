@@ -1,4 +1,4 @@
-// walk.js: flying down to the island, walking around, and flying back up.
+// walk.js: flying down to a place (island or gallery), walking around, and flying back up.
 // Controls: WASD / arrow keys on desktop, the joystick on touch screens.
 // Looking around by dragging is handled in scene.js.
 
@@ -11,9 +11,12 @@ const STICK_RADIUS = 40;     // how far the joystick knob can move (pixels)
 
 const MOVE_KEYS = ["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"];
 
-export function createWalk({ camera, world, island, onModeChange }) {
+// CHANGED in Phase 5: "places" holds every place you can walk in:
+//   places.island and places.gallery. Each one has getSpawn(), constrain(x, z) and topY.
+export function createWalk({ camera, world, places, onModeChange }) {
   // mode is one of: "sky", "in" (flying down), "walking", "out" (flying up)
   let mode = "sky";
+  let place = "island"; // NEW: which place we are going to / standing in: "island" or "gallery"
   let t = 0; // progress of the flight, from 0 to 1
 
   const from = new THREE.Vector3();
@@ -103,16 +106,18 @@ export function createWalk({ camera, world, island, onModeChange }) {
     mode = newMode;
     joystickBox.hidden = !(isTouchDevice && mode === "walking");
     if (mode !== "walking") resetInput();
-    onModeChange(mode);
+    onModeChange(mode, place); // CHANGED: the place is sent too
   }
 
-  // Fly down to the island
-  function enter() {
-    const spawn = island.getSpawn();
+  // Fly down to a place ("island" or "gallery").
+  // Works from the sky AND from another place (you fly straight there).
+  function enter(placeName) {
+    place = placeName;
+    const spawn = places[place].getSpawn();
     from.copy(camera.position);
     to.set(spawn.x, spawn.y + EYE_HEIGHT, spawn.z);
     t = 0;
-    world.lookTowards(0, 0); // turn to face the island
+    world.lookTowards(0, 0); // turn to face forward
     setMode("in");
   }
 
@@ -126,10 +131,16 @@ export function createWalk({ camera, world, island, onModeChange }) {
     setMode("out");
   }
 
-  // The Walk button calls this
+  // The Walk / Sky button calls this
   function toggle() {
-    if (mode === "sky") enter();
+    if (mode === "sky") enter("island");
     else if (mode === "walking") leave();
+  }
+
+  // NEW: the Gallery / Island button calls this
+  function toggleGallery() {
+    if (mode === "sky") enter("gallery");
+    else if (mode === "walking") enter(place === "gallery" ? "island" : "gallery");
   }
 
   // ---------- Runs every frame ----------
@@ -183,12 +194,13 @@ export function createWalk({ camera, world, island, onModeChange }) {
     const wantedX = camera.position.x + (-sin * forward + cos * right) * step;
     const wantedZ = camera.position.z + (-cos * forward - sin * right) * step;
 
-    // Keep us on the island and out of the houses
-    const allowed = island.constrain(wantedX, wantedZ);
+    // Keep us inside this place (on the island, or on the street)
+    const current = places[place];
+    const allowed = current.constrain(wantedX, wantedZ);
     camera.position.x = allowed.x;
     camera.position.z = allowed.z;
-    camera.position.y = island.topY + EYE_HEIGHT;
+    camera.position.y = current.topY + EYE_HEIGHT;
   });
 
-  return { toggle: toggle, getMode: () => mode };
+  return { toggle: toggle, toggleGallery: toggleGallery, getMode: () => mode, getPlace: () => place };
 }
