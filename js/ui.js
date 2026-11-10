@@ -1,4 +1,5 @@
-// ui.js: buttons, the join form, the wish popup, the room popup, the walk button, the counter and the message bubble.
+// ui.js: buttons, the join form, the wish popup, the room popup, the art form and popup,
+// the walk and gallery buttons, the counter and the message bubble.
 
 const $ = (id) => document.getElementById(id);
 
@@ -160,31 +161,46 @@ export function initWalkButton({ onToggle }) {
   $("walk-btn").addEventListener("click", onToggle);
 }
 
-// Change the button and the hint text to match the mode:
-// "sky", "in" (flying down), "walking", "out" (flying up)
-export function setWalkMode(mode) {
-  const btn = $("walk-btn");
+// CHANGED in Phase 5: the buttons and the hint change with the mode AND the place.
+// mode is "sky", "in" (flying down), "walking" or "out" (flying up).
+// place is "island" or "gallery".
+export function setWalkMode(mode, place) {
+  const walkBtn = $("walk-btn");
+  const galleryBtn = $("gallery-btn");
   const hint = $("hint");
   const isTouch = window.matchMedia("(pointer: coarse)").matches;
 
   if (mode === "sky") {
-    btn.textContent = "🚶 Walk";
-    btn.disabled = false;
+    walkBtn.textContent = "🚶 Walk";
+    walkBtn.disabled = false;
+    galleryBtn.textContent = "🖼️ Gallery";
+    galleryBtn.disabled = false;
     hint.textContent = "Drag to look around. Tap a lantern to read its wish, or a house to see its room.";
   } else if (mode === "walking") {
-    btn.textContent = "🌌 Sky";
-    btn.disabled = false;
-    hint.textContent = isTouch
-      ? "Use the joystick to walk. Drag the screen to look. Tap a house to see its room."
-      : "W A S D to walk. Drag the mouse to look. Tap a house to see its room.";
+    walkBtn.textContent = "🌌 Sky";
+    walkBtn.disabled = false;
+    galleryBtn.disabled = false;
+
+    if (place === "gallery") {
+      galleryBtn.textContent = "🏝️ Island";
+      hint.textContent = isTouch
+        ? "Use the joystick to walk down the street. Tap a picture to see it and leave a flower."
+        : "W A S D to walk down the street. Tap a picture to see it and leave a flower.";
+    } else {
+      galleryBtn.textContent = "🖼️ Gallery";
+      hint.textContent = isTouch
+        ? "Use the joystick to walk. Drag the screen to look. Tap a house to see its room."
+        : "W A S D to walk. Drag the mouse to look. Tap a house to see its room.";
+    }
   } else {
-    // flying: the button is switched off until we arrive
-    btn.textContent = "✈️ ...";
-    btn.disabled = true;
+    // flying: the buttons are switched off until we arrive
+    walkBtn.textContent = "✈️ ...";
+    walkBtn.disabled = true;
+    galleryBtn.disabled = true;
   }
 }
 
-// ---------- NEW in Phase 4: the room popup ----------
+// ---------- Phase 4: the room popup ----------
 
 // What the popup is showing right now (used to fill the edit form)
 let roomIsOwner = false;
@@ -299,4 +315,162 @@ export function setRoomContent(room) {
 export function setRoomLoadFailed() {
   $("room-skills").textContent = "Could not load this room.";
   $("room-projects").textContent = "";
+}
+
+// ---------- NEW in Phase 5: the art button, the art form and the art popup ----------
+
+// Connect the two new buttons on the right side of the screen.
+// onGallery: fly to Gallery Street (or back to the island). onAddArt: open the art form.
+export function initGalleryButtons({ onGallery, onAddArt }) {
+  $("gallery-btn").addEventListener("click", onGallery);
+  $("art-btn").addEventListener("click", onAddArt);
+}
+
+// The art button says "Add" or "Change" depending on whether you already have art
+export function setArtButton(hasArt) {
+  $("art-btn").textContent = hasArt ? "🎨 Change my art" : "🎨 Add my art";
+}
+
+// Set up the art form (title + picture).
+// onSubmit({ title, file }) runs in main.js. It throws an Error with a friendly message if it fails.
+export function initArtForm({ onSubmit }) {
+  const modal = $("art-modal");
+  const form = $("art-form");
+  const titleInput = $("art-title-input");
+  const fileInput = $("art-file-input");
+  const preview = $("art-preview");
+  const errorBox = $("art-error");
+  const submitBtn = $("art-submit-btn");
+  let previewUrl = null; // the temporary address of the preview picture
+
+  function clearPreview() {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    previewUrl = null;
+    preview.hidden = true;
+    preview.removeAttribute("src");
+  }
+
+  function closeForm() {
+    modal.hidden = true;
+    clearPreview();
+  }
+
+  $("art-cancel-btn").addEventListener("click", closeForm);
+
+  // Clicking the dark area outside the card also closes the form
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeForm();
+  });
+
+  // Show a small preview as soon as a picture is chosen
+  fileInput.addEventListener("change", () => {
+    clearPreview();
+    const file = fileInput.files[0];
+    if (file && file.type && file.type.startsWith("image/")) {
+      previewUrl = URL.createObjectURL(file);
+      preview.src = previewUrl;
+      preview.hidden = false;
+    }
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const title = titleInput.value.trim();
+    const file = fileInput.files[0];
+
+    if (!title) {
+      errorBox.textContent = "Please give your art a title.";
+      return;
+    }
+    if (title.length > 60) {
+      errorBox.textContent = "The title is too long.";
+      return;
+    }
+    if (!file) {
+      errorBox.textContent = "Please choose a picture.";
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Uploading...";
+    errorBox.textContent = "";
+
+    try {
+      await onSubmit({ title, file });
+      closeForm();
+      form.reset();
+    } catch (err) {
+      errorBox.textContent = err.message;
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Hang my art";
+    }
+  });
+}
+
+// Open the art form. hasArt = true means this person is replacing their old picture.
+export function openArtForm({ hasArt }) {
+  $("art-form-title").textContent = hasArt ? "Change your art" : "Share your art";
+  $("art-error").textContent = "";
+  $("art-modal").hidden = false;
+  $("art-title-input").focus();
+}
+
+// Set up the popup that shows one picture.
+// onFlower runs when "Leave a flower" is pressed. onClose runs when the popup closes.
+export function initArtPopup({ onFlower, onClose }) {
+  const modal = $("art-view-modal");
+
+  function close() {
+    modal.hidden = true;
+    onClose();
+  }
+
+  $("art-view-close-btn").addEventListener("click", close);
+
+  // Clicking the dark area outside the card also closes it
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) close();
+  });
+
+  $("flower-btn").addEventListener("click", onFlower);
+}
+
+// Fill the popup with a picture and show it.
+// artist and college come from the person's wish. textContent keeps the page safe.
+export function openArtPopup({ art, artist, college }) {
+  $("art-view-artist").textContent = artist + (college ? " · " + college : "");
+  updateArtPopup(art);
+  setFlowerStatus("checking");
+  $("art-view-modal").hidden = false;
+}
+
+// Refresh the picture, the title and the flower count (used when the art changes live)
+export function updateArtPopup(art) {
+  const img = $("art-view-img");
+  // Only show real picture text (the database rules also check this)
+  if (typeof art.imageUrl === "string" && art.imageUrl.startsWith("data:image/")) {
+    img.src = art.imageUrl;
+  }
+  $("art-view-title").textContent = art.title;
+  const n = art.flowers || 0;
+  $("art-view-flowers").textContent = "🌸 " + n + (n === 1 ? " flower" : " flowers");
+}
+
+// Change the flower button depending on the situation
+export function setFlowerStatus(status) {
+  const btn = $("flower-btn");
+
+  const states = {
+    checking: { text: "Checking...", disabled: true },
+    ready: { text: "🌸 Leave a flower", disabled: false },
+    sending: { text: "Sending...", disabled: true },
+    flowered: { text: "✅ Flower left", disabled: true },
+    own: { text: "💛 This is your art", disabled: true }
+  };
+
+  const state = states[status] || states.ready;
+  btn.textContent = state.text;
+  btn.disabled = state.disabled;
 }
